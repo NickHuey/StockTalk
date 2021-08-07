@@ -15,7 +15,7 @@ auth.set_access_token(access_token, access_token_secret)
 
 api = tweepy.API(auth,wait_on_rate_limit=True)
 
-screen_name = "marketmovesmatt"
+screen_name = "thecasualcoder"
 user = api.get_user(screen_name)
 statuses = api.user_timeline(screen_name)
 status = statuses[0]
