@@ -1,5 +1,7 @@
 import tweepy
 import time
+import bitdotio
+# import psycopg2
 
 
 consumer_key = 'Dyh71DNiNnqNR3vJZCuDddjYt'
@@ -12,6 +14,31 @@ auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_token_secret)
 
 api = tweepy.API(auth,wait_on_rate_limit=False)
+
+# Connect to bit.io
+b = bitdotio.bitdotio('BRRW_svr3AXFkgRUE8WgYcMs9NC7')
+
+
+# print(b.list_repos("CasualCoder"))
+
+# How about some database queries?
+conn = b.get_connection()
+cur = conn.cursor()
+cur.execute('SELECT * from "CasualCoder/stock_ticker"."sp_500"')
+print(cur.fetchall())
+
+# conn = psycopg2.connect(
+#     host="db.bit.io",
+#     database="bitdotio",
+#     port="5432",
+#     user="CasualCoder_demo_db_connection",
+#     password="BQwy_HTut5zbEUzs69ctUPuHs8Yy")
+
+# cur = conn.cursor()
+
+# cur.execute("""use database stock_ticker;""")
+# cur.execute("""select count(*) from stock_ticker.twitter_tweets""")
+
 
 class UserTweet:
     x = "this is from the user class"
@@ -35,13 +62,15 @@ date_since = "2021-08-05"
 # public_tweets = api.search(q='$RKT', since=date_since).items(100)
 # for tweet in public_tweets:
 #     print(tweet.text)
-tweets = tweepy.Cursor(api.search,
-              q=search_words + " -filter:retweets",
-              lang="en",
-              since=date_since).items(10000)
 
-for tweet in tweets:
-    print(tweet.user.name + "-" + tweet.user.screen_name + "-" + tweet.user.location)
+#Commented out for testing
+# tweets = tweepy.Cursor(api.search,
+#               q=search_words + " -filter:retweets",
+#               lang="en",
+#               since=date_since).items(10000)
+
+# for tweet in tweets:
+#     print(tweet.user.name + "-" + tweet.user.screen_name + "-" + tweet.user.location)
     
 
 # for tweet in tweets:
