@@ -1,8 +1,14 @@
 import tweepy
 import time
 import bitdotio
+from datetime import datetime
+import pandas as pd
+import sqlite3 as sl
+
 # import psycopg2
 
+
+#Connect to bit.io
 
 consumer_key = 'Dyh71DNiNnqNR3vJZCuDddjYt'
 consumer_secret = 'v2hdV21Srp9FNrbmOKXZ94LjEgNC6lk4OnbrzxGAKoNpp0oYc9'
@@ -13,26 +19,117 @@ access_token_secret = 'EK55sIHc8NAB7CZdRBcWvhCvQOs9HlHxeYE9Dp2AT3ZKN'
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_token_secret)
 
-api = tweepy.API(auth,wait_on_rate_limit=False)
+api = tweepy.API(auth
+  ,wait_on_rate_limit=True
+  ,wait_on_rate_limit_notify=True)
 
-# Connect to bit.io
-b = bitdotio.bitdotio('BRRW_svr3AXFkgRUE8WgYcMs9NC7')
+### Connect to bit.io ###
+# b = bitdotio.bitdotio('BRRW_svr3AXFkgRUE8WgYcMs9NC7')
+# # Create database connection (bit.io)
+# conn = b.get_connection()
+# cur = conn.cursor()
+###
 
-
-# print(b.list_repos("CasualCoder"))
-
-# How about some database queries?
-conn = b.get_connection()
+### Connect to SQLite ###
+conn = sl.connect('data/stock-talk.db')
 cur = conn.cursor()
-cur.execute('SELECT * from "CasualCoder/stock_ticker"."sp_500"')
-print(cur.fetchall())
+#Create Tables
+# with conn:
+#   #twitter_tweets
+#   conn.execute("""
+#         CREATE TABLE twitter_tweets(
+#           user_id INT8,
+#           user_name TEXT,
+#           screen_name TEXT,
+#           create_date timestamptz(6),
+#           text TEXT,
+#           tweet_id INT8,
+#           follower_count INTEGER,
+#           profile_image VARCHAR,
+#           url VARCHAR,
+#           load_date datetime DEFAULT current_timestamp
+#           )
+#         """)
+  # twitter_symbols
+  # conn.execute("""
+  #       CREATE TABLE twitter_symbols(
+  #         user_id INT8,
+  #         tweet_id INT8,
+  #         symbol VARCHAR,
+  #         date_loaded datetime DEFAULT current_timestamp
+  #       )""")
 
-# conn = psycopg2.connect(
-#     host="db.bit.io",
-#     database="bitdotio",
-#     port="5432",
-#     user="CasualCoder_demo_db_connection",
-#     password="BQwy_HTut5zbEUzs69ctUPuHs8Yy")
+
+
+#Output filename
+output_file = "output/tweet_counts.csv"
+
+#Field Names
+fields = ["Symbol", "Volume", "Tweets"]
+
+#Read in Ticker data
+ticker_df = pd.read_csv("data/watchlist.csv")
+
+#Setup Filter for 2M in Volume
+is_2M = ticker_df["Volume"] >= 2000000
+
+#Apply Filter to capture symbols with at least 2M in Volume
+output = ticker_df[is_2M]
+final = output.sort_values(by='Volume',ascending=True)
+
+for index, row in final.iterrows():
+    print('$' + row['Symbol'])
+
+    # Define the search term and the date_since date as variables
+    search_words = '$' + row['Symbol']
+    date_since = "2021-08-13"
+    cur.execute("""select max(t1.tweet_id)
+                    from twitter_tweets t1
+                    join twitter_symbols t2
+                    on t1.tweet_id = t2.tweet_id""")
+                    # where t2.symbol = ? """, (row['Symbol'],))
+
+    tweet_id = cur.fetchone()
+    since_id =tweet_id[0]
+    print('Latest: ' + str(since_id))
+  # x=0
+# # public_tweets = api.search(q='$RKT', since=date_since).items(100)
+# # for tweet in public_tweets:
+# #     print(tweet.text)
+
+# #Commented out for testing
+    tweets = tweepy.Cursor(api.search,
+                q=search_words + " -filter:retweets",
+                lang="en",
+                include_entities=True,
+                # since=date_since,
+                since_id=since_id
+                ).items(5000)
+
+    for tweet in tweets:
+
+    #Insert Tweets
+      cur.execute('''INSERT INTO twitter_tweets VALUES (?,?,?,?,?,?,?,?,?,?)''',(tweet.user.id,tweet.user.name,tweet.user.screen_name, tweet.created_at, tweet.text, tweet.id, tweet.user.followers_count, tweet.user.profile_image_url_https, tweet.user.url, datetime.now()))
+      conn.commit()
+      # # print(str(tweet.user.id) + "-" + tweet.user.name + "-" + tweet.user.screen_name + "-" + str(tweet.created_at) + "-" + tweet.text)
+      for symbol in tweet.entities['symbols']:
+            cur.execute('''INSERT INTO twitter_symbols VALUES (?,?,?,?)''',(tweet.user.id, tweet.id, symbol['text'].upper(), datetime.now()))
+            conn.commit()
+      print(tweet.user.screen_name + "Created: " + str(tweet.created_at))
+
+    time.sleep(.25)  # sleep for few extra sec
+
+
+
+
+
+
+
+
+# cur.execute('INSERT INTO "CasualCoder/stock_ticker"."twitter_tweets" VALUES (%s,%s,%s,%s,%s)',(1001,"TheCasualCoder","Casual Coder", date.today(), "First tweet"))
+# conn.commit()
+# cur.execute('SELECT * from "CasualCoder/stock_ticker"."twitter_tweets"')
+# print(cur.fetchone())
 
 # cur = conn.cursor()
 
@@ -40,38 +137,20 @@ print(cur.fetchall())
 # cur.execute("""select count(*) from stock_ticker.twitter_tweets""")
 
 
-class UserTweet:
-    x = "this is from the user class"
+# class UserTweet:
+#     x = "this is from the user class"
 
-class UserInfo:
-    pass
+# class UserInfo:
+#     pass
 
-class TweetSymbols:
-    pass
+# class TweetSymbols:
+#     pass
 
-p1 = UserTweet()
-print(p1.x);
-
-
-
-# Define the search term and the date_since date as variables
-search_words = "PLTR"
-date_since = "2021-08-05"
+# p1 = UserTweet()
+# print(p1.x);
 
 
-# public_tweets = api.search(q='$RKT', since=date_since).items(100)
-# for tweet in public_tweets:
-#     print(tweet.text)
 
-#Commented out for testing
-# tweets = tweepy.Cursor(api.search,
-#               q=search_words + " -filter:retweets",
-#               lang="en",
-#               since=date_since).items(10000)
 
-# for tweet in tweets:
-#     print(tweet.user.name + "-" + tweet.user.screen_name + "-" + tweet.user.location)
-    
 
-# for tweet in tweets:
-#     print(tweet.text)
+
